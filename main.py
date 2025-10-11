@@ -3,19 +3,29 @@ import ssl
 import base64
 
 class URL:
-  def __init__(self, url):
-    if url.startswith("data:"):
+  def __init__(self, url):    
+    if url.startswith("view-source:"):
+      self.scheme = "view-source"
+      url = url[12:]
+    elif url.startswith("data:"):
       self.scheme = "data"
       url = url[5:]
     else:
       self.scheme, url = url.split("://", 1)
 
-    assert self.scheme in ["http", "https", "file", "data"]
+    assert self.scheme in ["http", "https", "file", "data", "view-source"]
     match self.scheme:
+      case "view-source": self.initWithViewSourceScheme(url)
       case "file": self.initWithFileScheme(url)
       case "http": self.initWithHttpScheme(url)
       case "https": self.initWithHttpScheme(url)
       case "data": self.initWithDataScheme(url)
+
+  def initWithViewSourceScheme(self, url):
+    self.inner_url = url
+    self.inner_url_obj = URL(self.inner_url)
+    self.host = None
+    self.port = None
   
   def initWithFileScheme(self, url):
     self.host = None
@@ -61,6 +71,7 @@ class URL:
       case "http": return self.requestWithHttpScheme()
       case "https": return self.requestWithHttpScheme()
       case "data": return self.requestWithDataScheme()
+      case "view-source": return self.requestWithViewSourceScheme()
   
   def requestWithFileScheme(self):
     try:
@@ -84,6 +95,14 @@ class URL:
         return urllib.parse.unquote(self.data)
     except Exception as e:
       return f"Error processing data URL: {str(e)}"
+
+  def requestWithViewSourceScheme(self):
+    result = self.inner_url_obj.request()
+
+    if result is None:
+      return ""
+
+    return str(result)
 
   def requestWithHttpScheme(self):
     s = socket.socket(
@@ -139,7 +158,10 @@ def decodeHtmlEntities(text):
   
   return result
 
-def show(body):
+def showRawContent(body):
+  print(body)
+
+def showFilteredContent(body):
   decoded_body = decodeHtmlEntities(body)
   
   inTag = False
@@ -153,7 +175,11 @@ def show(body):
 
 def load(url):
   body = url.request()
-  show(body)
+  
+  if url.scheme == "view-source":
+    showRawContent(body)
+  else:
+    showFilteredContent(body)
 
 if __name__ == "__main__":
   import sys
