@@ -6,7 +6,7 @@ class URL:
   def __init__(self, url):
     if url.startswith("data:"):
       self.scheme = "data"
-      url = url[5:]  # "data:" 제거
+      url = url[5:]
     else:
       self.scheme, url = url.split("://", 1)
 
@@ -123,9 +123,27 @@ class URL:
 
     return body
 
+def decodeHtmlEntities(text):
+  entities = {
+    '&lt;': '<',
+    '&gt;': '>',
+    '&amp;': '&',
+    '&quot;': '"',
+    '&apos;': "'",
+    '&nbsp;': ' '
+  }
+  
+  result = text
+  for entity, char in entities.items():
+    result = result.replace(entity, char)
+  
+  return result
+
 def show(body):
+  decoded_body = decodeHtmlEntities(body)
+  
   inTag = False
-  for content in body:
+  for content in decoded_body:
     if content == "<":
       inTag = True
     elif content == ">":
