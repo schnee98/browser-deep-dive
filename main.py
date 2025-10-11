@@ -4,10 +4,21 @@ import ssl
 class URL:
   def __init__(self, url):
     self.scheme, url = url.split("://", 1)
+
+    assert self.scheme in ["http", "https", "file"]
+    match self.scheme:
+      case "file": self.initWithFileScheme(url)
+      case "http": self.initWithHttpScheme(url)
+      case "https": self.initWithHttpScheme(url)
+  
+  def initWithFileScheme(self, url):
+    self.host = None
+    self.port = None
+    self.path = url
+
+  def initWithHttpScheme(self, url):
     self.host, url = url.split("/", 1)
     self.path = "/" + url
-
-    assert self.scheme in ["http", "https"]
 
     if ":" in self.host:
       self.host, port = self.host.split(":", 1)
@@ -19,8 +30,23 @@ class URL:
 
     if "/" not in url:
       url = url + "/"
-  
+
   def request(self):
+    match self.scheme:
+      case "file": return self.requestWithFileScheme()
+      case "http": return self.requestWithHttpScheme()
+      case "https": return self.requestWithHttpScheme()
+  
+  def requestWithFileScheme(self):
+    try:
+      with open(self.path, 'r', encoding='utf8') as f:
+        return f.read()
+    except FileNotFoundError:
+      return "File not found: " + self.path
+    except Exception as e:
+      return "Error reading file: " + str(e)
+
+  def requestWithHttpScheme(self):
     s = socket.socket(
       family=socket.AF_INET,
       type=socket.SOCK_STREAM,
