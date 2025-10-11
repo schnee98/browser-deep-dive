@@ -2,6 +2,8 @@ import socket
 import ssl
 import base64
 
+connection_pool = {}
+
 class URL:
   def __init__(self, url):    
     if url.startswith("view-source:"):
@@ -105,23 +107,23 @@ class URL:
     return str(result)
 
   def requestWithHttpScheme(self):
-    s = socket.socket(
-      family=socket.AF_INET,
-      type=socket.SOCK_STREAM,
-      proto=socket.IPPROTO_TCP
-    )
-    s.connect((self.host, self.port))
+    connection_key = (self.scheme, self.host, self.port)
+    s = connection_pool.get(connection_key)
 
-    if self.scheme == "https":
-      ctx = ssl.create_default_context()
-      s = ctx.wrap_socket(s, server_hostname=self.host)
+    if s is None:
+      s = self.connectToSocket()
 
     request = f"GET {self.path} HTTP/1.1\r\n"
     request += f"Host: {self.host}\r\n"
-    request += "Connection: close\r\n"
+    request += "Connection: keep-alive\r\n"
     request += "User-Agent: SimpleHTTPClient/1.0\r\n"
     request += "\r\n"
-    s.send(request.encode("utf8"))
+    
+    try:
+      s.send(request.encode("utf8"))
+    except (BrokenPipeError, ConnectionResetError):
+      s = self.connectToSocket()
+      s.send(request.encode("utf8"))
 
     response = s.makefile("r", encoding="utf8", newline="\r\n")
     statusLine = response.readline()
@@ -137,10 +139,34 @@ class URL:
       assert "transfer-encoding" not in responseHeaders
       assert "content-encoding" not in responseHeaders
 
-    body = response.read()
-    s.close()
+    if "content-length" in responseHeaders:
+      content_length = int(responseHeaders["content-length"])
+      body = response.read(content_length)
+    else:
+      body = response.read()
+    
+    connection_header = responseHeaders.get("connection", "").lower()
+    if connection_header == "close":
+      s.close()
+      if connection_key in connection_pool:
+        del connection_pool[connection_key]
+    else:
+      connection_pool[connection_key] = s
 
     return body
+  
+  def connectToSocket(self):
+    s = socket.socket(
+      family=socket.AF_INET,
+      type=socket.SOCK_STREAM,
+      proto=socket.IPPROTO_TCP
+    )
+    s.connect((self.host, self.port))
+    
+    if self.scheme == "https":
+      ctx = ssl.create_default_context()
+      s = ctx.wrap_socket(s, server_hostname=self.host)
+    return s
 
 def decodeHtmlEntities(text):
   entities = {
