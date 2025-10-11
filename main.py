@@ -106,7 +106,12 @@ class URL:
 
     return str(result)
 
-  def requestWithHttpScheme(self):
+  def requestWithHttpScheme(self, redirect_count=0):
+    MAX_REDIRECTS = 10
+    
+    if redirect_count >= MAX_REDIRECTS:
+      return f"Error: Too many redirects (maximum {MAX_REDIRECTS})"
+    
     connection_key = (self.scheme, self.host, self.port)
     s = connection_pool.get(connection_key)
 
@@ -125,13 +130,13 @@ class URL:
       s = self.connectToSocket()
       s.send(request.encode("utf8"))
 
-    response = s.makefile("r", encoding="utf8", newline="\r\n")
-    statusLine = response.readline()
+    response = s.makefile("rb", newline=None)
+    statusLine = decodeLines(response.readline())
     version, status, explanation = statusLine.split(" ", 2)
 
     responseHeaders = {}
     while True:
-      line = response.readline()
+      line = decodeLines(response.readline())
       if line == "\r\n": break
       header, value = line.split(":", 1)
       responseHeaders[header.casefold()] = value.strip()
@@ -141,9 +146,9 @@ class URL:
 
     if "content-length" in responseHeaders:
       content_length = int(responseHeaders["content-length"])
-      body = response.read(content_length)
+      body = decodeLines(response.read(content_length))
     else:
-      body = response.read()
+      body = decodeLines(response.read())
     
     connection_header = responseHeaders.get("connection", "").lower()
     if connection_header == "close":
@@ -152,6 +157,10 @@ class URL:
         del connection_pool[connection_key]
     else:
       connection_pool[connection_key] = s
+
+    status_code = int(status)
+    if 300 <= status_code < 400 and "location" in responseHeaders:
+      body = self.redirect(responseHeaders["location"], redirect_count)
 
     return body
   
@@ -167,6 +176,22 @@ class URL:
       ctx = ssl.create_default_context()
       s = ctx.wrap_socket(s, server_hostname=self.host)
     return s
+  
+  def redirect(self, location, redirect_count=0):
+    if location.startswith("/"):
+      if self.port not in [80, 443]:
+        redirect_url = f"{self.scheme}://{self.host}:{self.port}{location}"
+      else:
+        redirect_url = f"{self.scheme}://{self.host}{location}"
+    elif location.startswith("http://") or location.startswith("https://"):
+      redirect_url = location
+    else:
+      base_path = "/".join(self.path.split("/")[:-1])
+      redirect_url = f"{self.scheme}://{self.host}{base_path}/{location}"
+    
+    redirect_url_obj = URL(redirect_url)
+    return redirect_url_obj.requestWithHttpScheme(redirect_count + 1)
+
 
 def decodeHtmlEntities(text):
   entities = {
@@ -183,6 +208,9 @@ def decodeHtmlEntities(text):
     result = result.replace(entity, char)
   
   return result
+
+def decodeLines(lines):
+  return lines.decode("utf8")
 
 def showRawContent(body):
   print(body)
