@@ -1,20 +1,44 @@
 import socket
 import ssl
+import base64
 
 class URL:
   def __init__(self, url):
-    self.scheme, url = url.split("://", 1)
+    if url.startswith("data:"):
+      self.scheme = "data"
+      url = url[5:]  # "data:" 제거
+    else:
+      self.scheme, url = url.split("://", 1)
 
-    assert self.scheme in ["http", "https", "file"]
+    assert self.scheme in ["http", "https", "file", "data"]
     match self.scheme:
       case "file": self.initWithFileScheme(url)
       case "http": self.initWithHttpScheme(url)
       case "https": self.initWithHttpScheme(url)
+      case "data": self.initWithDataScheme(url)
   
   def initWithFileScheme(self, url):
     self.host = None
     self.port = None
     self.path = url
+
+  def initWithDataScheme(self, url):
+    self.host = None
+    self.port = None
+    
+    if "," in url:
+      header, self.data = url.split(",", 1)
+      
+      if ";" in header and "base64" in header:
+        self.mediatype = header.split(";")[0]
+        self.is_base64 = True
+      else:
+        self.mediatype = header if header else "text/plain;charset=US-ASCII"
+        self.is_base64 = False
+    else:
+      self.mediatype = "text/plain"
+      self.is_base64 = False
+      self.data = url
 
   def initWithHttpScheme(self, url):
     self.host, url = url.split("/", 1)
@@ -36,6 +60,7 @@ class URL:
       case "file": return self.requestWithFileScheme()
       case "http": return self.requestWithHttpScheme()
       case "https": return self.requestWithHttpScheme()
+      case "data": return self.requestWithDataScheme()
   
   def requestWithFileScheme(self):
     try:
@@ -45,6 +70,20 @@ class URL:
       return "File not found: " + self.path
     except Exception as e:
       return "Error reading file: " + str(e)
+
+  def requestWithDataScheme(self):
+    try:
+      if self.is_base64:
+        decoded_bytes = base64.b64decode(self.data)
+        try:
+          return decoded_bytes.decode('utf-8')
+        except UnicodeDecodeError:
+          return f"[Binary data: {len(decoded_bytes)} bytes, mediatype: {self.mediatype}]"
+      else:
+        import urllib.parse
+        return urllib.parse.unquote(self.data)
+    except Exception as e:
+      return f"Error processing data URL: {str(e)}"
 
   def requestWithHttpScheme(self):
     s = socket.socket(
@@ -58,8 +97,8 @@ class URL:
       ctx = ssl.create_default_context()
       s = ctx.wrap_socket(s, server_hostname=self.host)
 
-    request = "GET {} HTTP/1.1\r\n".format(self.path)
-    request += "Host: {}\r\n".format(self.host)
+    request = f"GET {self.path} HTTP/1.1\r\n"
+    request += f"Host: {self.host}\r\n"
     request += "Connection: close\r\n"
     request += "User-Agent: SimpleHTTPClient/1.0\r\n"
     request += "\r\n"
