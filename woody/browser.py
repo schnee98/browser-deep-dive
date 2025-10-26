@@ -19,7 +19,7 @@ class URL:
   # 파이썬의 메서드에는 항상 self 매개변수가 있어야 함
   def __init__(self, url):
     self.scheme, url = url.split("://", 1)
-    assert self.scheme in ["http", "https"]
+    assert self.scheme in ["http", "https", "file"]
 
     if '/' not in url:
       url  = url + '/'
@@ -30,12 +30,25 @@ class URL:
       self.port = 443
     elif self.scheme == "http":
       self.port = 80
+    elif self.scheme == "file":
+      self.port = None
     # 사용자 지정 포트 번호 처리
     if ":" in self.host:
       self.host, port = self.host.split(":", 1)
       self.port = int(port)
 
   def request(self):
+    if self.scheme == "file":
+      # 로컬 파일 읽기
+      try:
+        with open(self.path, "r", encoding="utf8") as f:
+          return f.read()
+      except FileNotFoundError:
+        return "File not found: " + self.path
+      except Exception as e:
+        return "Error reading file: " + str(e)
+    
+    # HTTP/HTTPS 요청 처리
     # 서버 연결
     s = socket.socket(
       family=socket.AF_INET,
@@ -83,4 +96,8 @@ class URL:
 # http://example.org/index.html
 if __name__ == "__main__":
   import sys
-  load(URL(sys.argv[1]))
+  if len(sys.argv) > 1:
+    load(URL(sys.argv[1]))
+  else:
+    # URL이 없으면 기본 로컬 파일 로드
+    load(URL("file:///Users/heominjeong/project/Woody/browser-deep-dive/index.html"))

@@ -140,3 +140,51 @@ Connection: close
 User-Agent: Woody-Browser/1.0
 
 ```
+
+## 8. File 스킴 지원 및 로컬 파일 처리
+
+### 새로 추가된 기능
+
+- **File 스킴 지원**: `file://` URL을 통한 로컬 파일 접근
+- **로컬 파일 읽기**: 파일 시스템에서 직접 파일 내용 읽기
+- **기본 파일 로드**: URL 없이 실행 시 기본 로컬 파일 자동 로드
+- **에러 처리**: 파일이 없거나 읽기 오류 시 적절한 메시지 출력
+
+### 기술적 구현
+
+```python
+# File 스킴 처리
+if self.scheme == "file":
+    try:
+        with open(self.path, "r", encoding="utf8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return "File not found: " + self.path
+    except Exception as e:
+        return "Error reading file: " + str(e)
+
+# 기본 파일 로드
+if len(sys.argv) > 1:
+    load(URL(sys.argv[1]))
+else:
+    load(URL("file:///path/to/default/file.html"))
+```
+
+### 사용법
+
+```bash
+# 로컬 파일 직접 지정
+python3 browser.py file:///path/to/file.html
+
+# URL 없이 실행 (기본 파일 로드)
+python3 browser.py
+
+# HTTP/HTTPS URL (기존 기능)
+python3 browser.py http://example.org/
+```
+
+### 지원하는 스킴
+
+- ✅ **http**: HTTP 프로토콜 지원
+- ✅ **https**: HTTPS 프로토콜 지원 (SSL/TLS)
+- ✅ **file**: 로컬 파일 시스템 접근
