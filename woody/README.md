@@ -239,18 +239,20 @@ python3 browser.py "data:,Simple text"
 ## 10. HTML 엔티티 처리 기능 추가
 
 ### 새로 추가된 기능
+
 - **HTML 엔티티 디코딩**: `&lt;`, `&gt;` 등의 HTML 엔티티를 실제 문자로 변환
 - **사전 기반 변환**: 딕셔너리를 사용한 효율적인 엔티티 처리
 - **태그 제거 전 처리**: HTML 엔티티를 먼저 변환한 후 태그 제거
 
 ### 기술적 구현
+
 ```python
 def decode_html_entities(text):
     entities = {
         '&lt;': '<',
         '&gt;': '>',
     }
-    
+
     for entity, char in entities.items():
         text = text.replace(entity, char)
     return text
@@ -258,7 +260,7 @@ def decode_html_entities(text):
 def show(body):
     # HTML 엔티티를 먼저 디코딩
     body = decode_html_entities(body)
-    
+
     in_tag = False
     for c in body:
         if c == "<":
@@ -270,10 +272,12 @@ def show(body):
 ```
 
 ### 지원하는 HTML 엔티티
+
 - `&lt;` → `<` (Less Than)
 - `&gt;` → `>` (Greater Than)
 
 ### 사용법 및 예시
+
 ```bash
 # HTML 엔티티가 포함된 데이터 URL
 python3 browser.py "data:text/html,&lt;div&gt;Hello World!&lt;/div&gt;"
@@ -285,6 +289,62 @@ python3 browser.py "data:text/html,<div>Hello World!</div>"
 ```
 
 ### 처리 순서
+
 1. **HTML 엔티티 디코딩**: `&lt;` → `<`, `&gt;` → `>`
 2. **HTML 태그 제거**: `<div>`, `</div>` 등 제거
 3. **텍스트 출력**: 순수 텍스트만 출력
+
+## 11. View-Source 스킴 지원 및 HTML 소스 코드 표시
+
+### 새로 추가된 기능
+
+- **View-Source 스킴 지원**: `view-source:` URL을 통한 HTML 소스 코드 직접 표시
+- **소스 코드 보기**: 페이지를 렌더링하지 않고 원본 HTML 소스 코드 출력
+- **중첩 URL 처리**: view-source 내부의 실제 URL을 처리하는 기능
+
+### 기술적 구현
+
+```python
+# View-Source URL 파싱
+elif url.startswith("view-source:"):
+    self.scheme = "view-source"
+    self.target_url = url[12:]  # "view-source:" 제거
+    # 내부적으로 실제 URL 객체 생성
+    self.inner_url = URL(self.target_url)
+
+# View-Source 요청 처리
+if self.scheme == "view-source":
+    return self.inner_url.request()
+
+# 렌더링 방식 결정
+def load(url):
+    body = url.request()
+    if url.scheme == "view-source":
+        print(body)  # 소스 코드 그대로 출력
+    else:
+        show(body)   # 일반 렌더링 (태그 제거)
+```
+
+### 사용법 및 예시
+
+```bash
+# HTML 소스 코드 보기
+python3 browser.py "view-source:http://example.org/"
+# 출력: <!doctype html><html>...</html>
+
+# 일반 렌더링과 비교
+python3 browser.py "http://example.org/"
+# 출력: Example Domain (태그 제거된 텍스트)
+
+# Data URL의 소스 코드 보기
+python3 browser.py "view-source:data:text/html,<h1>Hello</h1>"
+# 출력: <h1>Hello</h1>
+```
+
+### 지원하는 스킴 (업데이트)
+
+- ✅ **http**: HTTP 프로토콜 지원
+- ✅ **https**: HTTPS 프로토콜 지원 (SSL/TLS)
+- ✅ **file**: 로컬 파일 시스템 접근
+- ✅ **data**: 인라인 데이터 URL 지원
+- ✅ **view-source**: HTML 소스 코드 직접 표시

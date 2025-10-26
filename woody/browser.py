@@ -27,7 +27,12 @@ def show(body):
       
 def load(url):
   body = url.request()
-  show(body)
+  if url.scheme == "view-source":
+    # view-source: HTML 소스 코드를 그대로 출력 (렌더링하지 않음)
+    print(body)
+  else:
+    # 일반적인 렌더링 (HTML 태그 제거)
+    show(body)
 
 class URL:
   # 파이썬의 메서드에는 항상 self 매개변수가 있어야 함
@@ -46,6 +51,15 @@ class URL:
       self.host = None
       self.path = None
       self.port = None
+    elif url.startswith("view-source:"):
+      # view-source: URL 파싱 (예: view-source:http://example.org/)
+      self.scheme = "view-source"
+      self.target_url = url[12:]  # "view-source:" 제거
+      # 내부적으로 실제 URL 객체 생성
+      self.inner_url = URL(self.target_url)
+      self.host = self.inner_url.host
+      self.path = self.inner_url.path
+      self.port = self.inner_url.port
     else:
       # HTTP/HTTPS/FILE URL 파싱
       self.scheme, url = url.split("://", 1)
@@ -71,6 +85,10 @@ class URL:
     if self.scheme == "data":
       # data: URL에서 직접 데이터 반환
       return self.data
+    
+    if self.scheme == "view-source":
+      # view-source: 실제 URL의 소스 코드 반환 (렌더링하지 않음)
+      return self.inner_url.request()
     
     if self.scheme == "file":
       # 로컬 파일 읽기
