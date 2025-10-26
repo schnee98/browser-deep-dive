@@ -348,3 +348,50 @@ python3 browser.py "view-source:data:text/html,<h1>Hello</h1>"
 - ✅ **file**: 로컬 파일 시스템 접근
 - ✅ **data**: 인라인 데이터 URL 지원
 - ✅ **view-source**: HTML 소스 코드 직접 표시
+
+## 12. 코드 리팩토링 및 구조 개선
+
+### 리팩토링 목표
+
+- **가독성 향상**: 긴 메서드를 작은 단위로 분리
+- **유지보수성 개선**: 각 기능별로 독립적인 메서드 구성
+- **코드 재사용성**: 공통 로직을 별도 메서드로 분리
+
+### 리팩토링된 구조
+
+#### URL 클래스 메서드 분리
+
+```python
+class URL:
+    def __init__(self, url):
+        # 스킴별 파싱 메서드 호출
+        if url.startswith("data:"):
+            self._parse_data_url(url)
+        elif url.startswith("view-source:"):
+            self._parse_view_source_url(url)
+        else:
+            self._parse_standard_url(url)
+
+    def request(self):
+        # 스킴별 요청 처리 메서드 호출
+        if self.scheme == "data":
+            return self._request_data()
+        elif self.scheme == "view-source":
+            return self._request_view_source()
+        elif self.scheme == "file":
+            return self._request_file()
+        else:
+            return self._request_http()
+```
+
+#### 분리된 메서드들
+
+- **파싱 메서드**: `_parse_data_url()`, `_parse_view_source_url()`, `_parse_standard_url()`
+- **요청 메서드**: `_request_data()`, `_request_view_source()`, `_request_file()`, `_request_http()`
+
+### 리팩토링 효과
+
+- **가독성**: 각 메서드가 단일 책임을 가짐
+- **테스트 용이성**: 개별 메서드 단위 테스트 가능
+- **확장성**: 새로운 스킴 추가 시 해당 메서드만 구현하면 됨
+- **디버깅**: 문제 발생 시 특정 메서드만 확인하면 됨

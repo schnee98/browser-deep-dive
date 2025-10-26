@@ -38,69 +38,89 @@ class URL:
   # 파이썬의 메서드에는 항상 self 매개변수가 있어야 함
   def __init__(self, url):
     if url.startswith("data:"):
-      # data: URL 파싱 (예: data:text/html,hello world!)
-      self.scheme = "data"
-      url = url[5:]  # "data:" 제거
-      if "," in url:
-        self.mime_type, self.data = url.split(",", 1)
-        if not self.mime_type:
-          self.mime_type = "text/plain"
-      else:
-        self.mime_type = "text/plain"
-        self.data = url
-      self.host = None
-      self.path = None
-      self.port = None
+      self._parse_data_url(url)
     elif url.startswith("view-source:"):
-      # view-source: URL 파싱 (예: view-source:http://example.org/)
-      self.scheme = "view-source"
-      self.target_url = url[12:]  # "view-source:" 제거
-      # 내부적으로 실제 URL 객체 생성
-      self.inner_url = URL(self.target_url)
-      self.host = self.inner_url.host
-      self.path = self.inner_url.path
-      self.port = self.inner_url.port
+      self._parse_view_source_url(url)
     else:
-      # HTTP/HTTPS/FILE URL 파싱
-      self.scheme, url = url.split("://", 1)
-      assert self.scheme in ["http", "https", "file"]
+      self._parse_standard_url(url)
 
-      if '/' not in url:
-        url  = url + '/'
-      self.host, url = url.split("/", 1)
-      self.path = "/" + url
+  def _parse_data_url(self, url):
+    """data: URL 파싱"""
+    self.scheme = "data"
+    url = url[5:]  # "data:" 제거
+    if "," in url:
+      self.mime_type, self.data = url.split(",", 1)
+      if not self.mime_type:
+        self.mime_type = "text/plain"
+    else:
+      self.mime_type = "text/plain"
+      self.data = url
+    self.host = None
+    self.path = None
+    self.port = None
 
-      if self.scheme == "https":
-        self.port = 443
-      elif self.scheme == "http":
-        self.port = 80
-      elif self.scheme == "file":
-        self.port = None
-      # 사용자 지정 포트 번호 처리
-      if ":" in self.host:
-        self.host, port = self.host.split(":", 1)
-        self.port = int(port)
+  def _parse_view_source_url(self, url):
+    """view-source: URL 파싱"""
+    self.scheme = "view-source"
+    self.target_url = url[12:]  # "view-source:" 제거
+    # 내부적으로 실제 URL 객체 생성
+    self.inner_url = URL(self.target_url)
+    self.host = self.inner_url.host
+    self.path = self.inner_url.path
+    self.port = self.inner_url.port
+
+  def _parse_standard_url(self, url):
+    """HTTP/HTTPS/FILE URL 파싱"""
+    self.scheme, url = url.split("://", 1)
+    assert self.scheme in ["http", "https", "file"]
+
+    if '/' not in url:
+      url  = url + '/'
+    self.host, url = url.split("/", 1)
+    self.path = "/" + url
+
+    if self.scheme == "https":
+      self.port = 443
+    elif self.scheme == "http":
+      self.port = 80
+    elif self.scheme == "file":
+      self.port = None
+    # 사용자 지정 포트 번호 처리
+    if ":" in self.host:
+      self.host, port = self.host.split(":", 1)
+      self.port = int(port)
 
   def request(self):
+    """URL 스킴에 따른 요청 처리"""
     if self.scheme == "data":
-      # data: URL에서 직접 데이터 반환
-      return self.data
-    
-    if self.scheme == "view-source":
-      # view-source: 실제 URL의 소스 코드 반환 (렌더링하지 않음)
-      return self.inner_url.request()
-    
-    if self.scheme == "file":
-      # 로컬 파일 읽기
-      try:
-        with open(self.path, "r", encoding="utf8") as f:
-          return f.read()
-      except FileNotFoundError:
-        return "File not found: " + self.path
-      except Exception as e:
-        return "Error reading file: " + str(e)
-    
-    # HTTP/HTTPS 요청 처리
+      return self._request_data()
+    elif self.scheme == "view-source":
+      return self._request_view_source()
+    elif self.scheme == "file":
+      return self._request_file()
+    else:
+      return self._request_http()
+
+  def _request_data(self):
+    """data: URL에서 직접 데이터 반환"""
+    return self.data
+
+  def _request_view_source(self):
+    """view-source: 실제 URL의 소스 코드 반환"""
+    return self.inner_url.request()
+
+  def _request_file(self):
+    """로컬 파일 읽기"""
+    try:
+      with open(self.path, "r", encoding="utf8") as f:
+        return f.read()
+    except FileNotFoundError:
+      return "File not found: " + self.path
+    except Exception as e:
+      return "Error reading file: " + str(e)
+
+  def _request_http(self):
+    """HTTP/HTTPS 요청 처리"""
     # 서버 연결
     s = socket.socket(
       family=socket.AF_INET,
