@@ -188,3 +188,50 @@ python3 browser.py http://example.org/
 - ✅ **http**: HTTP 프로토콜 지원
 - ✅ **https**: HTTPS 프로토콜 지원 (SSL/TLS)
 - ✅ **file**: 로컬 파일 시스템 접근
+- ✅ **data**: 인라인 데이터 URL 지원
+
+## 9. Data 스킴 지원 및 인라인 데이터 처리
+
+### 새로 추가된 기능
+
+- **Data 스킴 지원**: `data:` URL을 통한 인라인 데이터 처리
+- **MIME 타입 인식**: `data:text/html,content` 형식 지원
+- **직접 데이터 반환**: 네트워크 요청 없이 URL에 포함된 데이터 직접 사용
+
+### 기술적 구현
+
+```python
+# Data URL 파싱
+if url.startswith("data:"):
+    self.scheme = "data"
+    url = url[5:]  # "data:" 제거
+    if "," in url:
+        self.mime_type, self.data = url.split(",", 1)
+    else:
+        self.mime_type = "text/plain"
+        self.data = url
+
+# Data 요청 처리
+if self.scheme == "data":
+    return self.data
+```
+
+### 사용법
+
+```bash
+# 텍스트 데이터
+python3 browser.py "data:text/plain,Hello World!"
+
+# HTML 데이터
+python3 browser.py "data:text/html,<h1>Hello World!</h1>"
+
+# MIME 타입 없이 (기본값: text/plain)
+python3 browser.py "data:,Simple text"
+```
+
+### Data URL 형식
+
+- `data:[<mediatype>][;base64],<data>`
+- 예: `data:text/html,<h1>Hello</h1>`
+- 예: `data:text/plain,Hello World!`
+- 예: `data:,Simple text` (MIME 타입 생략 시 text/plain)

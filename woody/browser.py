@@ -18,26 +18,46 @@ def load(url):
 class URL:
   # 파이썬의 메서드에는 항상 self 매개변수가 있어야 함
   def __init__(self, url):
-    self.scheme, url = url.split("://", 1)
-    assert self.scheme in ["http", "https", "file"]
-
-    if '/' not in url:
-      url  = url + '/'
-    self.host, url = url.split("/", 1)
-    self.path = "/" + url
-
-    if self.scheme == "https":
-      self.port = 443
-    elif self.scheme == "http":
-      self.port = 80
-    elif self.scheme == "file":
+    if url.startswith("data:"):
+      # data: URL 파싱 (예: data:text/html,hello world!)
+      self.scheme = "data"
+      url = url[5:]  # "data:" 제거
+      if "," in url:
+        self.mime_type, self.data = url.split(",", 1)
+        if not self.mime_type:
+          self.mime_type = "text/plain"
+      else:
+        self.mime_type = "text/plain"
+        self.data = url
+      self.host = None
+      self.path = None
       self.port = None
-    # 사용자 지정 포트 번호 처리
-    if ":" in self.host:
-      self.host, port = self.host.split(":", 1)
-      self.port = int(port)
+    else:
+      # HTTP/HTTPS/FILE URL 파싱
+      self.scheme, url = url.split("://", 1)
+      assert self.scheme in ["http", "https", "file"]
+
+      if '/' not in url:
+        url  = url + '/'
+      self.host, url = url.split("/", 1)
+      self.path = "/" + url
+
+      if self.scheme == "https":
+        self.port = 443
+      elif self.scheme == "http":
+        self.port = 80
+      elif self.scheme == "file":
+        self.port = None
+      # 사용자 지정 포트 번호 처리
+      if ":" in self.host:
+        self.host, port = self.host.split(":", 1)
+        self.port = int(port)
 
   def request(self):
+    if self.scheme == "data":
+      # data: URL에서 직접 데이터 반환
+      return self.data
+    
     if self.scheme == "file":
       # 로컬 파일 읽기
       try:
