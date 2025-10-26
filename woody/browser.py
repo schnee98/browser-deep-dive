@@ -1,4 +1,5 @@
 import socket
+import ssl
 
 def show(body):
   in_tag = False
@@ -18,13 +19,21 @@ class URL:
   # 파이썬의 메서드에는 항상 self 매개변수가 있어야 함
   def __init__(self, url):
     self.scheme, url = url.split("://", 1)
-    # assert self.scheme in ["http", "https", "file", "data", "view-source"]
-    assert self.scheme == "http" # 실습은 http만 지원
+    assert self.scheme in ["http", "https"]
 
     if '/' not in url:
       url  = url + '/'
     self.host, url = url.split("/", 1)
     self.path = "/" + url
+
+    if self.scheme == "https":
+      self.port = 443
+    elif self.scheme == "http":
+      self.port = 80
+    # 사용자 지정 포트 번호 처리
+    if ":" in self.host:
+      self.host, port = self.host.split(":", 1)
+      self.port = int(port)
 
   def request(self):
     # 서버 연결
@@ -33,7 +42,11 @@ class URL:
       type=socket.SOCK_STREAM,
       proto=socket.IPPROTO_TCP
     )
-    s.connect((self.host, 80))
+    s.connect((self.host, self.port))
+
+    if self.scheme == "https":
+      ctx = ssl.create_default_context()
+      s = ctx.wrap_socket(s, server_hostname=self.host)
 
     # 서버에 요청 보내기
     request = "GET {} HTTP/1.0\r\n".format(self.path)

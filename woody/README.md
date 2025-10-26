@@ -58,8 +58,42 @@ python3 browser.py http://example.org/
 ### 지원 기능
 
 - ✅ HTTP 스킴 지원
+- ✅ HTTPS 스킴 지원 (SSL/TLS 암호화)
 - ✅ 기본적인 HTML 태그 제거
 - ✅ Content-Length 헤더 처리
-- ❌ HTTPS 스킴 (미지원)
+- ✅ 사용자 지정 포트 번호 지원
 - ❌ Transfer-Encoding (미지원)
 - ❌ Content-Encoding (미지원)
+
+## 6. HTTPS 스킴 지원 추가
+
+### 새로 추가된 기능
+- **SSL/TLS 암호화**: `ssl` 모듈을 사용한 HTTPS 연결 지원
+- **포트 자동 감지**: HTTP(80), HTTPS(443) 포트 자동 설정
+- **사용자 지정 포트**: URL에 포트 번호가 포함된 경우 자동 처리
+
+### 기술적 구현
+```python
+# SSL/TLS 연결 처리
+if self.scheme == "https":
+    ctx = ssl.create_default_context()
+    s = ctx.wrap_socket(s, server_hostname=self.host)
+
+# 포트 자동 감지
+if self.scheme == "https":
+    self.port = 443
+elif self.scheme == "http":
+    self.port = 80
+```
+
+### 테스트 예제
+```bash
+# HTTP 사이트 테스트
+python3 browser.py http://example.org/
+
+# HTTPS 사이트 테스트  
+python3 browser.py https://example.org/
+
+# 사용자 지정 포트 테스트
+python3 browser.py http://localhost:8000/
+```
