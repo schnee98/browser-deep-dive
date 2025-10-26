@@ -1,6 +1,51 @@
 import socket
 import ssl
 
+class ConnectionManager:
+  """소켓 연결을 관리하고 재사용하는 클래스"""
+  def __init__(self):
+    self.connections = {}  # (host, port) -> socket 매핑
+
+  def get_connection(self, host, port, scheme):
+    """기존 연결을 반환하거나 새 연결을 생성"""
+    key = (host, port)
+    
+    if key in self.connections:
+      return self.connections[key]
+    
+    # 새 연결 생성
+    s = socket.socket(
+      family=socket.AF_INET,
+      type=socket.SOCK_STREAM,
+      proto=socket.IPPROTO_TCP
+    )
+    s.connect((host, port))
+    
+    if scheme == "https":
+      ctx = ssl.create_default_context()
+      s = ctx.wrap_socket(s, server_hostname=host)
+    
+    self.connections[key] = s
+    return s
+
+  def close_connection(self, host, port):
+    """특정 연결을 닫고 캐시에서 제거"""
+    key = (host, port)
+    if key in self.connections:
+      self.connections[key].close()
+      del self.connections[key]
+
+  def close_all(self):
+    """모든 연결을 닫음"""
+    for s in self.connections.values():
+      s.close()
+    self.connections.clear()
+
+# 전역 연결 관리자
+connection_manager = ConnectionManager()
+
+# =======================================================
+
 def decode_html_entities(text):
 # HTML 엔티티를 실제 문자로 변환
   entities = {
@@ -120,23 +165,13 @@ class URL:
       return "Error reading file: " + str(e)
 
   def _request_http(self):
-    """HTTP/HTTPS 요청 처리"""
-    # 서버 연결
-    s = socket.socket(
-      family=socket.AF_INET,
-      type=socket.SOCK_STREAM,
-      proto=socket.IPPROTO_TCP
-    )
-    s.connect((self.host, self.port))
+    """HTTP/HTTPS 요청 처리 (연결 재사용)"""
+    # 연결 관리자에서 소켓 가져오기 (재사용 또는 새로 생성)
+    s = connection_manager.get_connection(self.host, self.port, self.scheme)
 
-    if self.scheme == "https":
-      ctx = ssl.create_default_context()
-      s = ctx.wrap_socket(s, server_hostname=self.host)
-
-    # 서버에 요청 보내기
+    # 서버에 요청 보내기 (Connection: close 제거)
     request = "GET {} HTTP/1.1\r\n".format(self.path)
     request += "Host: {}\r\n".format(self.host)
-    request += "Connection: close\r\n"
     request += "User-Agent: Woody-Browser/1.0\r\n"
     request += "\r\n"
     s.send(request.encode("utf8"))
@@ -161,6 +196,10 @@ class URL:
     if "content-length" in response_headers:
       content_length = int(response_headers["content-length"])
       body = response.read(content_length)
+    else:
+      # Content-Length가 없으면 연결을 닫고 모든 데이터 읽기
+      body = response.read()
+      connection_manager.close_connection(self.host, self.port)
 
     return body
 
@@ -168,8 +207,12 @@ class URL:
 # http://example.org/index.html
 if __name__ == "__main__":
   import sys
-  if len(sys.argv) > 1:
-    load(URL(sys.argv[1]))
-  else:
-    # URL이 없으면 기본 로컬 파일 로드
-    load(URL("file:///Users/heominjeong/project/Woody/browser-deep-dive/index.html"))
+  try:
+    if len(sys.argv) > 1:
+      load(URL(sys.argv[1]))
+    else:
+      # URL이 없으면 기본 로컬 파일 로드
+      load(URL("file:///Users/heominjeong/project/Woody/browser-deep-dive/index.html"))
+  finally:
+    # 프로그램 종료 시 모든 연결 정리
+    connection_manager.close_all()

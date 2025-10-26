@@ -395,3 +395,72 @@ class URL:
 - **테스트 용이성**: 개별 메서드 단위 테스트 가능
 - **확장성**: 새로운 스킴 추가 시 해당 메서드만 구현하면 됨
 - **디버깅**: 문제 발생 시 특정 메서드만 확인하면 됨
+
+## 13. HTTP 연결 재사용 (Keep-Alive) 구현
+
+### 새로 추가된 기능
+
+- **연결 재사용**: 같은 서버에 대한 반복 요청 시 소켓 연결 유지
+- **성능 향상**: 연결 설정 오버헤드 제거로 요청 속도 향상
+- **연결 관리**: ConnectionManager 클래스로 소켓 연결 생명주기 관리
+- **자동 정리**: 프로그램 종료 시 모든 연결 자동 해제
+
+### 기술적 구현
+
+```python
+class ConnectionManager:
+    def __init__(self):
+        self.connections = {}  # (host, port) -> socket 매핑
+
+    def get_connection(self, host, port, scheme):
+        # 기존 연결 반환 또는 새 연결 생성
+        if key in self.connections:
+            return self.connections[key]
+        # 새 연결 생성 및 캐시에 저장
+        s = socket.socket(...)
+        self.connections[key] = s
+        return s
+```
+
+### HTTP 요청 변경사항
+
+```python
+# 이전: Connection: close 헤더 전송
+request += "Connection: close\r\n"
+
+# 이후: Connection: close 헤더 제거 (keep-alive 기본값)
+# request += "Connection: close\r\n"  # 제거됨
+```
+
+### 연결 재사용 동작 방식
+
+1. **첫 번째 요청**: 새 소켓 연결 생성 및 캐시에 저장
+2. **후속 요청**: 캐시된 소켓 연결 재사용
+3. **Content-Length 처리**: 정확한 바이트 수만 읽고 연결 유지
+4. **프로그램 종료**: 모든 연결 자동 정리
+
+### 성능 향상 효과
+
+- **연결 설정 시간 절약**: TCP 핸드셰이크 생략
+- **SSL/TLS 재협상 생략**: HTTPS 연결 재사용 시 암호화 설정 유지
+- **서버 리소스 절약**: 서버 측에서도 연결 재사용 가능
+- **네트워크 효율성**: 연결 오버헤드 최소화
+
+### 사용법 및 테스트
+
+```bash
+# 같은 서버에 여러 요청 (연결 재사용)
+python3 browser.py "http://example.org/"
+python3 browser.py "http://example.org/"  # 연결 재사용
+python3 browser.py "http://example.org/"  # 연결 재사용
+
+# 다른 서버 요청 (새 연결 생성)
+python3 browser.py "http://httpbin.org/get"
+```
+
+### 연결 관리 특징
+
+- **자동 관리**: 개발자가 직접 연결을 관리할 필요 없음
+- **메모리 효율**: 사용하지 않는 연결은 자동으로 정리
+- **안전성**: 프로그램 종료 시 모든 연결 확실히 해제
+- **확장성**: 여러 서버에 대한 동시 연결 지원
