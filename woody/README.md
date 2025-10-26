@@ -68,11 +68,13 @@ python3 browser.py http://example.org/
 ## 6. HTTPS 스킴 지원 추가
 
 ### 새로 추가된 기능
+
 - **SSL/TLS 암호화**: `ssl` 모듈을 사용한 HTTPS 연결 지원
 - **포트 자동 감지**: HTTP(80), HTTPS(443) 포트 자동 설정
 - **사용자 지정 포트**: URL에 포트 번호가 포함된 경우 자동 처리
 
 ### 기술적 구현
+
 ```python
 # SSL/TLS 연결 처리
 if self.scheme == "https":
@@ -87,13 +89,54 @@ elif self.scheme == "http":
 ```
 
 ### 테스트 예제
+
 ```bash
 # HTTP 사이트 테스트
 python3 browser.py http://example.org/
 
-# HTTPS 사이트 테스트  
+# HTTPS 사이트 테스트
 python3 browser.py https://example.org/
 
 # 사용자 지정 포트 테스트
 python3 browser.py http://localhost:8000/
+```
+
+## 7. HTTP/1.1 프로토콜 지원 및 표준 헤더 추가
+
+### 새로 추가된 기능
+
+- **HTTP/1.1 프로토콜**: HTTP/1.0에서 HTTP/1.1로 업그레이드
+- **표준 HTTP 헤더**: Host, Connection, User-Agent 헤더 추가
+- **브라우저 식별**: "Woody-Browser/1.0" User-Agent로 브라우저 식별
+
+### 기술적 구현
+
+```python
+# HTTP/1.1 요청 헤더 구성
+request = "GET {} HTTP/1.1\r\n".format(self.path)
+request += "Host: {}\r\n".format(self.host)
+request += "Connection: close\r\n"
+request += "User-Agent: Woody-Browser/1.0\r\n"
+```
+
+### HTTP 헤더 설명
+
+- **Host 헤더**: 가상 호스팅 지원, 서버가 요청 대상 도메인 식별
+- **Connection: close**: 요청 후 연결 즉시 종료 (keep-alive 비활성화)
+
+  Connection 일반 헤더는 현재의 전송이 완료된 후 네트워크 접속을 유지할지 말지를 제어합니다. 만약 전송된 값이 keep-alive면, 연결은 지속되고 끊기지 않으며, 동일한 서버에 대한 후속 요청을 수행할 수 있습니다.
+
+  경고 : Connection 와 Keep-Alive 같은 연결-지정(Connection-specific) 헤더 필드들은 HTTP/2.에서 금지되었습니다.
+  크롬과 Firefox는 HTTP/2 응답에서 그들을 무시하지만, Safari는 HTTP/2 규격 요건에 따라 해당 필드가 포함된 응답은 처리하지 않습니다.
+
+- **User-Agent**: 서버가 클라이언트 브라우저를 식별할 수 있도록 함
+
+### 요청 예시
+
+```http
+GET / HTTP/1.1
+Host: example.org
+Connection: close
+User-Agent: Woody-Browser/1.0
+
 ```

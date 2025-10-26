@@ -49,8 +49,10 @@ class URL:
       s = ctx.wrap_socket(s, server_hostname=self.host)
 
     # 서버에 요청 보내기
-    request = "GET {} HTTP/1.0\r\n".format(self.path)
+    request = "GET {} HTTP/1.1\r\n".format(self.path)
     request += "Host: {}\r\n".format(self.host)
+    request += "Connection: close\r\n"
+    request += "User-Agent: Woody-Browser/1.0\r\n"
     request += "\r\n"
     s.send(request.encode("utf8"))
 
