@@ -1,7 +1,21 @@
 import socket
 import ssl
 
+def decode_html_entities(text):
+# HTML 엔티티를 실제 문자로 변환
+  entities = {
+    '&lt;': '<',
+    '&gt;': '>',
+  }
+  
+  for entity, char in entities.items():
+    text = text.replace(entity, char)
+  return text
+
 def show(body):
+  # HTML 엔티티를 먼저 디코딩
+  body = decode_html_entities(body)
+  
   in_tag = False
   for c in body:
     if c == "<":

@@ -235,3 +235,56 @@ python3 browser.py "data:,Simple text"
 - 예: `data:text/html,<h1>Hello</h1>`
 - 예: `data:text/plain,Hello World!`
 - 예: `data:,Simple text` (MIME 타입 생략 시 text/plain)
+
+## 10. HTML 엔티티 처리 기능 추가
+
+### 새로 추가된 기능
+- **HTML 엔티티 디코딩**: `&lt;`, `&gt;` 등의 HTML 엔티티를 실제 문자로 변환
+- **사전 기반 변환**: 딕셔너리를 사용한 효율적인 엔티티 처리
+- **태그 제거 전 처리**: HTML 엔티티를 먼저 변환한 후 태그 제거
+
+### 기술적 구현
+```python
+def decode_html_entities(text):
+    entities = {
+        '&lt;': '<',
+        '&gt;': '>',
+    }
+    
+    for entity, char in entities.items():
+        text = text.replace(entity, char)
+    return text
+
+def show(body):
+    # HTML 엔티티를 먼저 디코딩
+    body = decode_html_entities(body)
+    
+    in_tag = False
+    for c in body:
+        if c == "<":
+            in_tag = True
+        elif c == ">":
+            in_tag = False
+        elif not in_tag:
+            print(c, end="")
+```
+
+### 지원하는 HTML 엔티티
+- `&lt;` → `<` (Less Than)
+- `&gt;` → `>` (Greater Than)
+
+### 사용법 및 예시
+```bash
+# HTML 엔티티가 포함된 데이터 URL
+python3 browser.py "data:text/html,&lt;div&gt;Hello World!&lt;/div&gt;"
+# 출력: Hello World!
+
+# 실제 HTML과 동일한 결과
+python3 browser.py "data:text/html,<div>Hello World!</div>"
+# 출력: Hello World!
+```
+
+### 처리 순서
+1. **HTML 엔티티 디코딩**: `&lt;` → `<`, `&gt;` → `>`
+2. **HTML 태그 제거**: `<div>`, `</div>` 등 제거
+3. **텍스트 출력**: 순수 텍스트만 출력
