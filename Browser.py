@@ -13,6 +13,7 @@ class Browser:
     self.scroll = 0
     self.window.bind("<Down>", self.scroll_down)
     self.window.bind("<Up>", self.scroll_up)
+    self.window.bind("<MouseWheel>", self.wheel)
   
   def load(self, url):
     body = URL(url).request()
@@ -27,6 +28,10 @@ class Browser:
       if y + VSTEP < self.scroll: continue
 
       self.canvas.create_text(x, y - self.scroll, text=c)
+
+  def wheel(self, event):
+    self.scroll += event.delta / 3
+    self.draw()
 
   def scroll_down(self, event):
     self.scroll += VSTEP
