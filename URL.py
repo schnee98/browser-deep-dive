@@ -2,6 +2,8 @@ import socket
 import ssl
 import base64
 
+__all__ = ['URL', 'lex', 'load', 'showRawContent', 'decodeHtmlEntities', 'decodeLines']
+
 connection_pool = {}
 
 class URL:
@@ -215,25 +217,27 @@ def decodeLines(lines):
 def showRawContent(body):
   print(body)
 
-def showFilteredContent(body):
+def lex(body):
   decoded_body = decodeHtmlEntities(body)
   
-  inTag = False
+  text = ""
+  in_tag = False
   for content in decoded_body:
     if content == "<":
-      inTag = True
+      in_tag = True
     elif content == ">":
-      inTag = False
-    elif not inTag:
-      print(content, end="")
+      in_tag = False
+    elif not in_tag:
+      text += content
+  return text
 
 def load(url):
   body = url.request()
   
   if url.scheme == "view-source":
-    showRawContent(body)
+    return showRawContent(body)
   else:
-    showFilteredContent(body)
+    return lex(body)
 
 if __name__ == "__main__":
   import sys
